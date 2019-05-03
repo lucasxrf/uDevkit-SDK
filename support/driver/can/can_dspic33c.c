@@ -172,7 +172,7 @@ int can_enable(rt_dev_t device)
         C1FLTCON0Lbits.F0BP = 2;        // Store messages in FIFO2
         C1FLTOBJ0H = 0x0000;     // Filter 0 ID
         C1FLTOBJ0L = 0x00000;    // Filter 0 ID
-        C1FLTOBJ0Hbits.EXIDE = 1;       // Filter only EID messages
+        C1FLTOBJ0Hbits.EXIDE = 0;       // Filter only EID messages
         C1FLTCON0Lbits.FLTEN0 = 1;      // Enable the filter
         // mask 0
         C1MASK0H = 0x000;         // Ignore all bits in comparison
@@ -550,6 +550,7 @@ int can_send(rt_dev_t device, uint8_t fifo, CAN_MSG_HEADER *header, char *data)
 #if CAN_COUNT>=1
     unsigned int i;
     uint8_t size;
+    uint8_t dlc;
 
     uint8_t can = MINOR(device);
     if (can >= CAN_COUNT)
@@ -593,19 +594,40 @@ int can_send(rt_dev_t device, uint8_t fifo, CAN_MSG_HEADER *header, char *data)
 
     if (header->flags & CAN_RTR)
         CAN_DSPIC33C_TX_SETRTR(buffer);
+    else if (header->flags & CAN_FDF)
+        CAN_DSPIC33C_TX_SETFDF(buffer);
 
     // set data and data size
     size = header->size;
     if (header->flags & CAN_FDF)
     {
-        // TODO can Fd
+        if (size > 64)
+            size = 64;
+
+        if (size <= 8)
+            dlc = size;
+        else if (size <= 12)
+            dlc = 9;
+        else if (size <= 16)
+            dlc = 10;
+        else if (size <= 20)
+            dlc = 11;
+        else if (size <= 24)
+            dlc = 12;
+        else if (size <= 32)
+            dlc = 13;
+        else if (size <= 48)
+            dlc = 14;
+        else
+            dlc = 15;
     }
     else
     {
         if (size > 8)
             size = 8;
+        dlc = size;
     }
-    CAN_DSPIC33C_TX_SETDLC(buffer, header->size); // Data Length
+    CAN_DSPIC33C_TX_SETDLC(buffer, dlc); // Data Length
 
     // data
     char *bufferData = (char*)buffer + 8;
