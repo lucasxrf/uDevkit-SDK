@@ -117,7 +117,7 @@ int can_open(rt_dev_t device)
  * @param device CAN bus number
  * @return 0 if ok, -1 in case of error
  */
-int can_closeDevice(rt_dev_t device)
+int can_close(rt_dev_t device)
 {
 #if CAN_COUNT>=1
     uint8_t can = MINOR(device);
