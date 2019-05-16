@@ -62,6 +62,21 @@ typedef struct {
     uint8_t size;
 } CAN_MSG_HEADER;
 
+#define CAN_FIFO_RECEIVE 0
+#define CAN_FIFO_TRANSMIT 1
+
+#define CAN_FILTER_STANDARD_ID 0
+#define CAN_FILTER_EXTENDED_ID 1
+#define CAN_FILTER_ANY_ID 2
+
+int can_filterEnable(rt_dev_t device, uint8_t filter);
+int can_filterDisable(rt_dev_t device, uint8_t filter);
+int can_fifoSet(rt_dev_t device, uint8_t fifo, uint8_t fifoSize, uint8_t payloadSize, uint16_t flags);
+int can_filterSet(rt_dev_t device, uint16_t filter, uint32_t mask, uint32_t id, uint8_t flags, uint8_t fifo);
+int can_fifoReset(rt_dev_t device, uint8_t fifo);
+int can_setRetransmissionAttempts(rt_dev_t device, uint8_t fifo, uint8_t flags);
+int can_fifoCanBeRead(rt_dev_t device, uint8_t fifo);
+int can_fifoCanBeWritten(rt_dev_t device, uint8_t fifo);
 int can_send(rt_dev_t device, uint8_t fifo, CAN_MSG_HEADER *header, char *data);
 int can_rec(rt_dev_t device, uint8_t fifo, CAN_MSG_HEADER *header, char *data);
 

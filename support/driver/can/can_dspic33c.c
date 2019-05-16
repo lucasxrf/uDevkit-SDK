@@ -762,3 +762,375 @@ int can_rec(rt_dev_t device, uint8_t fifo, CAN_MSG_HEADER *header, char *data)
     return -1;
 #endif
 }
+
+
+
+/**
+ * @brief internal function, sets transmition mode on/off
+ * @param device CAN bus number
+ * @param filter number of the filter
+ * @param enable enable/disable
+ */
+int can_setFilterEnable(rt_dev_t device, uint8_t filter, uint8_t enable)
+{
+#if CAN_COUNT>=1
+    uint8_t can = MINOR(device);
+    if (can >= CAN_COUNT)
+        return -1;
+
+    if (filter >= CAN_FILTER_COUNT)
+        return -1;
+
+    volatile uint8_t *controlRegister;
+
+    switch (can)
+    {
+        case 0:
+            controlRegister = CAN_DSPIC33C_1_FILTERCON_REG(filter);
+            break;
+#if CAN_COUNT>=2
+        case 1:
+            controlRegister = CAN_DSPIC33C_2_FILTERCON_REG(filter);
+            break;
+#endif
+    }
+
+    if (enable == 1)
+        *controlRegister |= 0x80; // Enables the filter
+    else
+        *controlRegister &= !0x80; // Disables the filter
+
+    return 0;
+#else
+    return -1;
+#endif
+}
+
+/**
+ * @brief Enables the filter for the specified device
+ * @param device CAN bus number
+ * @param filter number of the filter
+ * @return 0 if ok, -1 in case of error
+ */
+int can_filterEnable(rt_dev_t device, uint8_t filter)
+{
+#if CAN_COUNT>=1
+    uint8_t can = MINOR(device);
+    if (can >= CAN_COUNT)
+        return -1;
+
+    can_setFilterEnable(device, filter, 1);
+    return 0;
+#else
+    return -1;
+#endif
+}
+
+/**
+ * @brief Disables the filter for the specified device
+ * @param device CAN bus number
+ * @param filter number of the filter
+ * @return 0 if ok, -1 in case of error
+ */
+int can_filterDisable(rt_dev_t device, uint8_t filter)
+{
+#if CAN_COUNT>=1
+    uint8_t can = MINOR(device);
+    if (can >= CAN_COUNT)
+        return -1;
+
+    can_setFilterEnable(device, filter, 0);
+    return 0;
+#else
+    return -1;
+#endif
+}
+
+/**
+ * @brief Enables the specified fifo
+ * @param device CAN bus number
+ * @param fifo fifo to set
+ * @param fifoSize number of messages
+ * @param payloadSize size of one message
+ * @param flags mode of the fifo (transmit or receive)
+ * @return 0 if ok, -1 in case of error
+ */
+int can_fifoSet(rt_dev_t device, uint8_t fifo, uint8_t fifoSize, uint8_t payloadSize, uint16_t flags)
+{
+#if CAN_COUNT>=1
+    uint8_t can = MINOR(device);
+    if (can >= CAN_COUNT)
+        return -1;
+
+    if (fifo > CAN_FIFO_COUNT)
+        return -1;
+
+    if (payloadSize > 7)
+        return -1;
+
+    if (fifoSize > 31)
+        return -1;
+
+    volatile uint16_t *fifoRegisterL;
+    volatile uint16_t *fifoRegisterH;
+    switch (can)
+    {
+        case 0:
+            fifoRegisterL = CAN_DSPIC33C_1_FIFO_REG(fifo);
+            break;
+#if CAN_COUNT>=2
+        case 1:
+            fifoRegisterL = CAN_DSPIC33C_2_FIFO_REG(fifo);
+            break;
+#endif
+    }
+
+
+    fifoRegisterH = fifoRegisterL + 1;
+    *fifoRegisterH = 0;
+    *fifoRegisterL = 0;
+
+    if (flags == CAN_FIFO_TRANSMIT)
+        *fifoRegisterL |= 0x80; // Sets fifo in transmit mode
+    else
+        *fifoRegisterL &= !0x80; // Sets fifo in receive mode
+
+    *fifoRegisterH |= payloadSize << 13;
+    *fifoRegisterH |= fifoSize << 8;
+
+    return 0;
+#else
+    return -1;
+#endif
+}
+
+/**
+ * @brief Sets the filter for the specified device
+ * @param device CAN bus number
+ * @param filter number of the filter
+ * @param mask mask that will be applied
+ * @param id id that will be filtered
+ * @param flags filter accepts standard id or extended id or both
+ * @param fifo fifo to redirect received message
+ * @return 0 if ok, -1 in case of error
+ */
+int can_filterSet(rt_dev_t device, uint16_t filter, uint32_t mask, uint32_t id, uint8_t flags, uint8_t fifo)
+{
+#if CAN_COUNT>=1
+    uint8_t can = MINOR(device);
+    if (can >= CAN_COUNT)
+        return -1;
+
+    if (filter >= CAN_FILTER_COUNT)
+        return -1;
+
+    volatile uint8_t *filterConRegister;
+    volatile uint16_t *filterRegisterH;
+    volatile uint16_t *filterRegisterL;
+    volatile uint16_t *maskRegisterL;
+    volatile uint16_t *maskRegisterH;
+    uint32_t exId;
+    uint32_t exMask;
+
+    switch (can)
+    {
+        case 0:
+            filterConRegister = CAN_DSPIC33C_1_FILTERCON_REG(filter);
+            filterRegisterH = CAN_DSPIC33C_1_FILTEROBJ_REG(filter);
+            filterRegisterL = filterRegisterH - 1;
+            maskRegisterL = CAN_DSPIC33C_1_MASK_REG(filter);
+            maskRegisterH = maskRegisterL + 1;
+            break;
+#if CAN_COUNT>=2
+        case 1:
+            filterConRegister = CAN_DSPIC33C_2_FILTERCON_REG(filter);
+            filterRegisterH = CAN_DSPIC33C_2_FILTEROBJ_REG(filter);
+            filterRegisterL = filterRegisterH - 1;
+            maskRegisterL = CAN_DSPIC33C_2_MASK_REG(filter);
+            maskRegisterH = maskRegisterL + 1;
+            break;
+#endif
+    }
+
+    *filterConRegister = fifo;
+
+    if (flags == CAN_FILTER_STANDARD_ID)
+    {
+        *filterRegisterL = id;
+        *maskRegisterL = mask;
+        ((C1FLTOBJ0HBITS *)filterRegisterH)->EXIDE = 0; // Does not accept extended id
+    }
+    else
+    {
+        exId  = CAN_DSPIC33C_MKEIDL(id);
+        exId += CAN_DSPIC33C_MKSID(id);
+        exId += CAN_DSPIC33C_MKEIDH(id);
+        *filterRegisterL = exId;
+        *filterRegisterH = (exId >> 16);
+
+        exMask  = CAN_DSPIC33C_MKEIDL(mask);
+        exMask += CAN_DSPIC33C_MKSID(mask);
+        exMask += CAN_DSPIC33C_MKEIDH(mask);
+        *maskRegisterL = exMask;
+        *maskRegisterH = (exMask >> 16);
+
+        ((C1FLTOBJ0HBITS *)filterRegisterH)->EXIDE = 1; // Accepts extended id
+
+        if (id < 1024)
+            ((C1FLTOBJ0HBITS *)filterRegisterH)->EXIDE = 0;
+    }
+
+    if (flags == CAN_FILTER_ANY_ID)
+        ((C1MASK0HBITS *)maskRegisterH)->MIDE = 0; // Accepts extended or standard ID according to EXIDE
+    else
+        ((C1MASK0HBITS *)maskRegisterH)->MIDE = 1;
+
+    return 0;
+#else
+    return -1;
+#endif
+}
+
+/**disable
+ * @brief Resets chosen fifo
+ * @param device CAN bus number
+ * @param fifo fifo to reset
+ * @return 0 if ok, -1 in case of error
+ */
+int can_fifoReset(rt_dev_t device, uint8_t fifo)
+{
+#if CAN_COUNT>=1
+    uint8_t can = MINOR(device);
+    if (can >= CAN_COUNT)
+        return -1;
+
+    volatile uint16_t *fifoRegister;
+    switch (can)
+    {
+        case 0:
+            fifoRegister = CAN_DSPIC33C_1_FIFO_REG(fifo);
+            break;
+#if CAN_COUNT>=2
+        case 1:
+            fifoRegister = CAN_DSPIC33C_2_FIFO_REG(fifo);
+            break;
+#endif
+    }
+
+    *fifoRegister = 0;
+
+    *fifoRegister &= 0x80; // Sets fifo to reset
+    return 0;
+#else
+    return -1;
+#endif
+}
+
+/**
+ * @brief Sets number of retransmission attempts
+ * @param device CAN bus number
+ * @param fifo fifo to reset
+ * @param enable retransmission on/off
+ * @return 0 if ok, -1 in case of error
+ */
+int can_setRetransmissionAttempts(rt_dev_t device, uint8_t fifo, uint8_t enable)
+{
+#if CAN_COUNT>=1
+    uint8_t can = MINOR(device);
+    if (can >= CAN_COUNT)
+        return -1;
+
+    volatile uint16_t *fifoRegister;
+    switch (can)
+    {
+        case 0:
+            fifoRegister = CAN_DSPIC33C_1_FIFO_REG(fifo) + 1;
+            break;
+#if CAN_COUNT>=2
+        case 1:
+            fifoRegister = CAN_DSPIC33C_2_FIFO_REG(fifo) + 1;
+            break;
+#endif
+    }
+
+    *fifoRegister = 0;
+
+    if (enable == 0)
+        *fifoRegister &= (0b01 << 5); // Only 3 retransmissions
+    else
+        *fifoRegister |= (0b11 << 5); // unlimited number of retransmissions
+    return 0;
+#else
+    return -1;
+#endif
+}
+
+/**
+ * @brief Checks if the chosen receive fifo has a message without reading it
+ * @param device CAN bus number
+ * @param fifo receive fifo to check
+ * @return 0 if no message was found, else 1 or -1 in case of error
+ */
+int can_fifoCanBeRead(rt_dev_t device, uint8_t fifo)
+{
+#if CAN_COUNT>=1
+    uint8_t can = MINOR(device);
+    if (can >= CAN_COUNT)
+        return -1;
+
+    volatile C1FIFOSTA1BITS *fifoSta;
+    switch (can)
+    {
+        case 0:
+            fifoSta = CAN_DSPIC33C_1_FIFO_REG(fifo) + 2;
+            break;
+#if CAN_COUNT>=2
+        case 1:
+            fifoSta = CAN_DSPIC33C_2_FIFO_REG(fifo) + 2;
+            break;
+#endif
+    }
+
+    if (fifoSta->TFNRFNIF == 0b1) // Checks if fifo has a message to be read
+        return 1;
+    else
+        return 0;
+#else
+    return -1;
+#endif
+}
+
+/**
+ * @brief Checks if the chosen transmit fifo has a message without sending it
+ * @param device CAN bus number
+ * @param fifo transmit fifo to check
+ * @return 0 if no message was found, else 1 or -1 in case of error
+ */
+int can_fifoCanBeWritten(rt_dev_t device, uint8_t fifo)
+{
+#if CAN_COUNT>=1
+    uint8_t can = MINOR(device);
+    if (can >= CAN_COUNT)
+        return -1;
+
+    volatile C1FIFOSTA1BITS *fifoSta;
+    switch (can)
+    {
+        case 0:
+            fifoSta = CAN_DSPIC33C_1_FIFO_REG(fifo) + 2;
+            break;
+#if CAN_COUNT>=2
+        case 1:
+            fifoSta = CAN_DSPIC33C_2_FIFO_REG(fifo) + 2;
+            break;
+#endif
+    }
+
+    if (fifoSta->TFNRFNIF == 0b1) // Checks if fifo has a message to be written
+        return 1;
+    else
+        return 0;
+#else
+    return -1;
+#endif
+}

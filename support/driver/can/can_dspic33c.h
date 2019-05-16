@@ -51,6 +51,8 @@
  #define CAN_FILTER_COUNT 0
 #endif
 
+
+
 // CAN TX Message Object
 typedef union {
     struct {
@@ -75,6 +77,7 @@ typedef struct {
     uint16_t timeStampL;
     uint16_t timeStampH;
 } CAN_RxMsgBuffer;
+
 #define CAN_DSPIC33C_RX_DLC(rxbuffer)  ((rxbuffer)->flags & 0x000F)
 #define CAN_DSPIC33C_RX_IDE(rxbuffer)  ((rxbuffer)->flags & 0x0010)
 #define CAN_DSPIC33C_RX_RTR(rxbuffer)  ((rxbuffer)->flags & 0x0020)
@@ -83,5 +86,23 @@ typedef struct {
 #define CAN_DSPIC33C_RX_SID(rxbuffer)  ((uint32_t)(rxbuffer)->sid   & 0x07FF)
 #define CAN_DSPIC33C_RX_EIDL(rxbuffer) (((uint32_t)(rxbuffer)->sid  & 0xF800) >> 11)
 #define CAN_DSPIC33C_RX_EIDH(rxbuffer) ((uint32_t)(rxbuffer)->eid << 5)
+
+#define CAN_DSPIC33C_MKSID(id) ((uint32_t)((id) & 0x07FF) << 18)
+#define CAN_DSPIC33C_MKEIDL(id) ((uint32_t)(((id) & 0xF800)) >> 11)
+#define CAN_DSPIC33C_MKEIDH(id) ((uint32_t)((id) & 0x1FFF0000) >> 11)
+
+#define CAN_DSPIC33C_1_FIFO_REG(number) ((volatile uint16_t *)(&C1FIFOCON1L) + (number - 1) * 6)
+#define CAN_DSPIC33C_1_FILTERCON_REG(number) ((volatile uint8_t *)(&C1FLTCON0L) + (number))
+#define CAN_DSPIC33C_1_FILTEROBJ_REG(number) ((volatile uint16_t *)(&C1FLTOBJ0H) + (number) * 4)
+#define CAN_DSPIC33C_1_MASK_REG(number) ((volatile uint16_t *)(&C1MASK0L) + (number) * 4)
+
+
+
+#if CAN_COUNT>=2
+ #define CAN_DSPIC33C_2_FIFO_REG(number) ((volatile uint16_t *)(&C2FIFOCON1L) + (number - 1) * 6)
+ #define CAN_DSPIC33C_2_FILTERCON_REG(number) ((volatile uint8_t *)(&C2FLTCON0L) + (number))
+ #define CAN_DSPIC33C_2_FILTEROBJ_REG(number) ((volatile uint16_t *)(&C2FLTOBJ0H) + (number) * 4)
+ #define CAN_DSPIC33C_2_MASK_REG(number) ((volatile uint16_t *)(&C2MASK0L) + (number) * 4)
+#endif
 
 #endif // CAN_DSPIC33C_H
