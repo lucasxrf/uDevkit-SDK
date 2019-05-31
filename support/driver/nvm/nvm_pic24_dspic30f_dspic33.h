@@ -23,12 +23,14 @@ typedef unsigned long prog_ptr;
   #define NVM_EE_ROW         32
   #define NVM_HAS_EPROM
 
-#elif defined(ARCHI_pic24f) || defined(ARCHI_pic24fj) || defined(ARCHI_pic24hj) || defined(ARCHI_dspic33fj)
+#elif defined(ARCHI_pic24f) || defined(ARCHI_pic24fj) || defined(ARCHI_pic24hj) \
+ || defined(ARCHI_dspic33fj)
   #define NVM_FLASH_PAGE     512
   #define NVM_FLASH_ROW      64
   #define NVM_HAS_FLASH
 
-#elif defined(ARCHI_pic24ep) || defined(ARCHI_dspic33ep) || defined(ARCHI_dspic33ev)
+#elif defined(ARCHI_pic24ep) || defined(ARCHI_dspic33ep) || defined(ARCHI_dspic33ev) \
+ || defined(ARCHI_dspic33ch) || defined(ARCHI_dspic33ck)
   #define NVM_FLASH_PAGE     1024
   #define NVM_FLASH_ROW      128
   #define NVM_HAS_FLASH
