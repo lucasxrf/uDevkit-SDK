@@ -17,6 +17,9 @@
 void nvm_read(uint32_t address, uint16_t ramBuffer[], size_t size);
 
 void nvm_erase_page(uint32_t address);
+
+void nvm_write(uint32_t address, unsigned char *data, size_t size);
+
 void nvm_write_double_word(uint32_t address, unsigned char *data);
 
 

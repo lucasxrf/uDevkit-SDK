@@ -27,13 +27,13 @@ void nvm_read(uint32_t address, uint16_t ramBuffer[], size_t size)
     for (i = 0; i < size; offset+=2)
     {
         //TODO recalculate tblpag and offset if offset overflows
-        /*if (offset > NVM_FLASH_PAGE)
+        if (offset > 0xFFFF)
         {
             offset = 0;
             TBLPAG++;
-        }*/
-        ramBuffer[i++] = __builtin_tblrdl(offset);
+        }
         ramBuffer[i++] = __builtin_tblrdh(offset);
+        ramBuffer[i++] = __builtin_tblrdl(offset);
     }
 }
 
@@ -81,4 +81,67 @@ void nvm_write_double_word(uint32_t address, unsigned char *data)
     __builtin_disi(6);
     __builtin_write_NVM();
     while (_WR == 1);
+}
+
+/**
+ * @brief Writes two words in flash memory
+ * @param address address of the page to read
+ * @param data array of the data to write (three 8bits words)
+ */
+void nvm_write(uint32_t address, unsigned char *data, size_t size)
+{
+    NVMCON = 0x4001;
+    TBLPAG = 0xFA; // write latch upper address
+    uint16_t offset;
+    uint32_t i = 0;
+    size_t normalSize = size;
+    char newData[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+    uint32_t oldAddress = address;
+
+    offset = address & 0x07FF;
+    NVMADR = (address & 0xF800) + offset;
+    NVMADRU = address >> 16; // set target write address of general segment
+
+    if ((address & 0xFFFFFFFB) != 0)
+    {
+        normalSize -= 3;
+        i = 3;
+
+        newData[3] = data[0];
+        newData[4] = data[1];
+        newData[5] = data[2];
+
+        nvm_write_double_word((address & 0xFFFFFFFB), newData);
+
+        data += 3;
+        
+        address &= 0xFFFFFFFB;
+        address += 4;
+        
+        if ((oldAddress & 0xFFFFFFF7) > 4)
+        {
+            address &= 0xFFFFFFF7;
+        }
+    }
+
+    while (i < normalSize)
+    {    
+        nvm_write_double_word(address, data);
+        address += 4;
+        data += 6;
+        i += 6;
+    }
+
+    if (i < (size - 1))
+    {
+        newData[0] = data[0];
+        newData[1] = data[1];
+        newData[2] = data[2];
+        newData[3] = 0xFF;
+        newData[4] = 0xFF;
+        newData[5] = 0xFF;
+
+        nvm_write_double_word(address, newData);
+    }
+
 }
