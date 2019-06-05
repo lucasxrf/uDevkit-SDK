@@ -61,7 +61,7 @@ void nvm_erase_page(uint32_t address)
  * @param address address of the page to read
  * @param data array of the data to write (three 8bits words)
  */
-void nvm_write_double_word(uint32_t address, unsigned char *data)
+void nvm_write_double_word(uint32_t address, unsigned char data[])
 {
     NVMCON = 0x4001;
     TBLPAG = 0xFA; // write latch upper address
@@ -88,21 +88,13 @@ void nvm_write_double_word(uint32_t address, unsigned char *data)
  * @param address address of the page to read
  * @param data array of the data to write (three 8bits words)
  */
-void nvm_write(uint32_t address, unsigned char *data, size_t size)
+void nvm_write(uint32_t address, unsigned char *data, int16_t size)
 {
-    NVMCON = 0x4001;
-    TBLPAG = 0xFA; // write latch upper address
-    uint16_t offset;
-    uint32_t i = 0;
-    size_t normalSize = size;
+    int32_t i = 0;
+    int16_t normalSize = size;
     char newData[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-    uint32_t oldAddress = address;
 
-    offset = address & 0x07FF;
-    NVMADR = (address & 0xF800) + offset;
-    NVMADRU = address >> 16; // set target write address of general segment
-
-    if ((address & 0xFFFFFFFB) != 0)
+    if ((address % 4) != 0)
     {
         normalSize -= 3;
         i = 3;
@@ -111,21 +103,16 @@ void nvm_write(uint32_t address, unsigned char *data, size_t size)
         newData[4] = data[1];
         newData[5] = data[2];
 
-        nvm_write_double_word((address & 0xFFFFFFFB), newData);
+        address = address & 0xFFFFFFC;
 
-        data += 3;
-        
-        address &= 0xFFFFFFFB;
+        nvm_write_double_word(address, newData);
+
         address += 4;
-        
-        if ((oldAddress & 0xFFFFFFF7) > 4)
-        {
-            address &= 0xFFFFFFF7;
-        }
+        data += 3;
     }
 
     while (i < normalSize)
-    {    
+    {
         nvm_write_double_word(address, data);
         address += 4;
         data += 6;
@@ -143,5 +130,4 @@ void nvm_write(uint32_t address, unsigned char *data, size_t size)
 
         nvm_write_double_word(address, newData);
     }
-
 }
