@@ -14,7 +14,7 @@
 #include <archi.h>
 
 /**
- * @brief Reads a page of flash memory
+ * @brief Reads flash memory
  * @param address address of the page to read
  * @param ramBuffer array of read data
  * @param size number of words to read
@@ -23,12 +23,13 @@ void nvm_read(uint32_t address, uint16_t ramBuffer[], size_t size)
 {
     uint16_t offset, i;
     TBLPAG = address >> 16;
-    offset = address;//& 0x7FF;
+    offset = address;
     for (i = 0; i < size; offset+=2)
     {
-        //TODO recalculate tblpag and offset if offset overflows
-        if (offset > 0xFFFF)
+        if (offset == 0xFFFE)
         {
+            ramBuffer[i++] = __builtin_tblrdh(offset);
+            ramBuffer[i++] = __builtin_tblrdl(offset);
             offset = 0;
             TBLPAG++;
         }
@@ -59,7 +60,7 @@ void nvm_erase_page(uint32_t address)
 /**
  * @brief Writes two words in flash memory
  * @param address address of the page to read
- * @param data array of the data to write (three 8bits words)
+ * @param data array of the data to write (2 * three 8bits words)
  */
 void nvm_write_double_word(uint32_t address, unsigned char data[])
 {
@@ -84,15 +85,16 @@ void nvm_write_double_word(uint32_t address, unsigned char data[])
 }
 
 /**
- * @brief Writes two words in flash memory
+ * @brief Writes words in flash memory
  * @param address address of the page to read
- * @param data array of the data to write (three 8bits words)
+ * @param data array of the data to write
+ * @param size size of the data to write in number of bytes
  */
 void nvm_write(uint32_t address, unsigned char *data, int16_t size)
 {
     int32_t i = 0;
     int16_t normalSize = size;
-    char newData[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+    unsigned char newData[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
     if ((address % 4) != 0)
     {
